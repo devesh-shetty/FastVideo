@@ -1,6 +1,5 @@
 chrome.browserAction.onClicked.addListener(function (tab) {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    var activeTab = tabs[0];
-    chrome.tabs.sendMessage(activeTab.id, { message: "increase_speed" });
+  chrome.tabs.executeScript({
+    code: 'document.getElementsByTagName("video")[0].playbackRate = 2.0',
   });
 });
