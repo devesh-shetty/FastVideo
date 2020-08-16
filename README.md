@@ -1,2 +1,2 @@
 # FastVideo
-Run videos at a higher speed
+FastVideo is a Chrome extension. It lets you run videos at a higher speed.
