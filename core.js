@@ -1,9 +1,10 @@
 function increasePlaybackRate() {
-  const video = document.getElementsByTagName("video")[0];
-  if (video) {
-    video.playbackRate = 2.0;
-  } else {
-    console.log("No video found.");
+  const videos = document.getElementsByTagName("video");
+  for (i = 0; i < videos.length; i++) {
+    if (!videos[i].paused) {
+      videos[i].playbackRate = 2.0;
+      break;
+    }
   }
 }
 
