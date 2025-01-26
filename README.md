@@ -2,6 +2,8 @@
 
 FastVideo is a Chrome extension that enhances video playback with smart speed controls and audio quality preservation.
 
+[![Available in the Chrome Web Store](https://storage.googleapis.com/web-dev-uploads/image/WlD8wC6g8khYWPJUsQceQkhXSlv1/iNEddTyWiMfLSwFD6qGq.png)](https://chromewebstore.google.com/detail/fastvideo/apejdflfbfcoenngpebifilgpgmgoppm?hl=en)
+
 ## Features
 
 ### 🎮 Speed Control
@@ -27,7 +29,7 @@ FastVideo is a Chrome extension that enhances video playback with smart speed co
 
 ## Usage
 
-1. Install the extension from Chrome Web Store
+1. [Install from Chrome Web Store](https://chromewebstore.google.com/detail/fastvideo/apejdflfbfcoenngpebifilgpgmgoppm?hl=en)
 2. Navigate to any page with a video
 3. Click the FastVideo icon in your toolbar
 4. The video will instantly speed up to 2x with preserved audio quality
