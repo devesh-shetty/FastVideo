@@ -14,10 +14,15 @@ FastVideo is a Chrome extension that enhances video playback with smart speed co
 - Works on any HTML5 video element
 - Preserves audio quality at higher speeds
 
-### 🔊 Audio Enhancement
-- Automatic pitch correction to prevent "chipmunk voice" effect
-- Uses Web Audio API for high-quality audio processing
-- Fallback to low-pass filter on unsupported browsers
+### 🔊 Advanced Audio Processing
+- Real-time pitch correction using Web Audio API
+- Multi-stage audio processing chain:
+  - Dynamic gain control
+  - Adaptive pitch correction
+  - Audio compression
+  - Volume normalization
+- Maintains natural voice pitch at high speeds
+- Automatically adjusts to prevent audio distortion
 
 ### 💫 Visual Feedback
 - Clean, minimal speed indicator overlay
@@ -42,8 +47,11 @@ FastVideo is a Chrome extension that enhances video playback with smart speed co
 
 - Built with vanilla JavaScript
 - Uses Chrome Extension Manifest V3
-- Implements Web Audio API for audio processing
-- Employs dynamic audio context management
+- Implements advanced Web Audio API features:
+  - BiquadFilter for pitch correction
+  - DynamicsCompressor for audio clarity
+  - GainNodes for volume control
+  - Real-time parameter automation
 - Features graceful fallbacks for all functionality
 
 ## Browser Support

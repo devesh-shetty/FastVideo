@@ -61,19 +61,44 @@ function createAudioContext(videoElement) {
   try {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaElementSource(videoElement);
-    const pitchCorrector = audioContext.createBiquadFilter(); // Always use biquad filter as fallback
 
-    source.connect(pitchCorrector);
-    pitchCorrector.connect(audioContext.destination);
+    // Create a more sophisticated pitch correction chain
+    const preGain = audioContext.createGain();
+    const pitchCorrector = audioContext.createBiquadFilter();
+    const compressor = audioContext.createDynamicsCompressor();
+    const postGain = audioContext.createGain();
 
-    // Store references using underscore prefix to avoid conflicts
+    // Configure the pitch correction filter
+    pitchCorrector.type = 'lowshelf';
+    pitchCorrector.frequency.value = 500;
+    pitchCorrector.gain.value = 0;
+
+    // Configure compressor for better audio quality
+    compressor.threshold.value = -50;
+    compressor.knee.value = 40;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0;
+    compressor.release.value = 0.25;
+
+    // Set initial gains
+    preGain.gain.value = 1.0;
+    postGain.gain.value = 1.0;
+
+    // Connect the audio processing chain
+    source
+      .connect(preGain)
+      .connect(pitchCorrector)
+      .connect(compressor)
+      .connect(postGain)
+      .connect(audioContext.destination);
+
+    // Store references
     videoElement._audioContext = audioContext;
     videoElement._source = source;
     videoElement._pitchCorrector = pitchCorrector;
-
-    // Configure the filter for pitch correction
-    pitchCorrector.type = 'lowpass';
-    pitchCorrector.frequency.value = 20000 / videoElement.playbackRate;
+    videoElement._preGain = preGain;
+    videoElement._compressor = compressor;
+    videoElement._postGain = postGain;
 
     return {
       audioContext: audioContext,
@@ -85,6 +110,23 @@ function createAudioContext(videoElement) {
   }
 }
 
+function adjustPitchCorrection(video, speed) {
+  if (!video._pitchCorrector) return;
+
+  // Calculate pitch correction parameters based on speed
+  const pitchRatio = 1.0 / speed;
+  const frequency = Math.min(20000, 500 * speed);
+  const gain = -12 * (speed - 1); // More negative gain for higher speeds
+
+  // Apply pitch correction
+  video._pitchCorrector.frequency.setValueAtTime(frequency, video._audioContext.currentTime);
+  video._pitchCorrector.gain.setValueAtTime(gain, video._audioContext.currentTime);
+
+  // Adjust pre/post gains to maintain consistent volume
+  video._preGain.gain.setValueAtTime(Math.min(1.0, pitchRatio), video._audioContext.currentTime);
+  video._postGain.gain.setValueAtTime(Math.min(1.0, speed), video._audioContext.currentTime);
+}
+
 function increasePlaybackRate() {
   const videos = document.getElementsByTagName("video");
   for (let i = 0; i < videos.length; i++) {
@@ -94,25 +136,16 @@ function increasePlaybackRate() {
       const audioSetup = createAudioContext(video);
       if (!audioSetup) {
         console.log('Audio setup failed');
-        // If audio setup fails, just change speed without pitch correction
         video.playbackRate = 2.0;
         showSpeedNotification(video.playbackRate);
         break;
       }
 
       video.playbackRate = 2.0;
-
       showSpeedNotification(video.playbackRate);
 
-      // Adjust pitch correction if supported
-      if (video._pitchCorrector.playbackRate) {
-        video._pitchCorrector.playbackRate.value = 1.0 / video.playbackRate;
-      } else {
-        // Fallback for browsers without native pitch correction:
-        // Use a basic low-pass filter to reduce "chipmunk effect"
-        video._pitchCorrector.type = 'lowpass';
-        video._pitchCorrector.frequency.value = 20000 / video.playbackRate;
-      }
+      // Apply enhanced pitch correction
+      adjustPitchCorrection(video, video.playbackRate);
 
       break;
     }
