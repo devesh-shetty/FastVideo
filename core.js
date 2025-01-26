@@ -1,29 +1,88 @@
-function createAudioContext(videoElement) {
-  // Create a temporary button and click it to satisfy user gesture requirement
-  // The temporary button click simulates the required user interaction that browsers need to allow audio context creation.
-  // The button is immediately removed after use, so it won't be visible to users.
-  const tempButton = document.createElement('button');
-  tempButton.style.display = 'none';
-  document.body.appendChild(tempButton);
-  tempButton.click();
-  document.body.removeChild(tempButton);
+function createSpeedIndicator() {
+  const indicator = document.createElement('div');
+  indicator.id = 'fast-video-speed-indicator';
 
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioContext.createMediaElementSource(videoElement);
-  const pitchCorrector = audioContext.createPitchCorrector
-    ? audioContext.createPitchCorrector()
-    : audioContext.createBiquadFilter();
+  Object.assign(indicator.style, {
+    position: 'fixed',
+    top: '20px',
+    right: '20px',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    color: 'white',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    fontSize: '14px',
+    fontFamily: 'Arial, sans-serif',
+    zIndex: '9999',
+    transition: 'opacity 0.3s ease',
+    opacity: '0'
+  });
 
-  // Connect the audio nodes
-  source.connect(pitchCorrector);
-  pitchCorrector.connect(audioContext.destination);
+  document.body.appendChild(indicator);
+  return indicator;
+}
 
-  // Resume the audio context
-  if (audioContext.state === 'suspended') {
-    audioContext.resume();
+function showSpeedNotification(speed) {
+  let indicator = document.getElementById('fast-video-speed-indicator');
+  if (!indicator) {
+    indicator = createSpeedIndicator();
   }
 
-  return { audioContext, pitchCorrector };
+  indicator.textContent = `${speed}x Speed`;
+  indicator.style.opacity = '1';
+
+  indicator.style.transform = 'scale(1.1)';
+  setTimeout(() => {
+    indicator.style.transform = 'scale(1)';
+  }, 100);
+
+  setTimeout(() => {
+    indicator.style.opacity = '0';
+  }, 2000);
+}
+
+function createAudioContext(videoElement) {
+  if (videoElement._audioContext && videoElement._source) {
+    return {
+      audioContext: videoElement._audioContext,
+      pitchCorrector: videoElement._pitchCorrector
+    };
+  }
+
+  if (videoElement._audioContext) {
+    try {
+      videoElement._source.disconnect();
+      videoElement._pitchCorrector.disconnect();
+      videoElement._audioContext.close();
+    } catch (e) {
+      console.log('Cleanup error:', e);
+    }
+  }
+
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaElementSource(videoElement);
+    const pitchCorrector = audioContext.createBiquadFilter(); // Always use biquad filter as fallback
+
+    source.connect(pitchCorrector);
+    pitchCorrector.connect(audioContext.destination);
+
+    // Store references using underscore prefix to avoid conflicts
+    videoElement._audioContext = audioContext;
+    videoElement._source = source;
+    videoElement._pitchCorrector = pitchCorrector;
+
+    // Configure the filter for pitch correction
+    pitchCorrector.type = 'lowpass';
+    pitchCorrector.frequency.value = 20000 / videoElement.playbackRate;
+
+    return {
+      audioContext: audioContext,
+      pitchCorrector: pitchCorrector
+    };
+  } catch (e) {
+    console.log('Audio setup error:', e);
+    return null;
+  }
 }
 
 function increasePlaybackRate() {
@@ -32,24 +91,27 @@ function increasePlaybackRate() {
     if (!videos[i].paused) {
       const video = videos[i];
 
-      // Only set up audio context if not already done
-      if (!video.audioContext) {
-        const { audioContext, pitchCorrector } = createAudioContext(video);
-        video.audioContext = audioContext;
-        video.pitchCorrector = pitchCorrector;
+      const audioSetup = createAudioContext(video);
+      if (!audioSetup) {
+        console.log('Audio setup failed');
+        // If audio setup fails, just change speed without pitch correction
+        video.playbackRate = 2.0;
+        showSpeedNotification(video.playbackRate);
+        break;
       }
 
-      // Set new playback rate
       video.playbackRate = 2.0;
 
+      showSpeedNotification(video.playbackRate);
+
       // Adjust pitch correction if supported
-      if (video.pitchCorrector.playbackRate) {
-        video.pitchCorrector.playbackRate.value = 1.0 / video.playbackRate;
+      if (video._pitchCorrector.playbackRate) {
+        video._pitchCorrector.playbackRate.value = 1.0 / video.playbackRate;
       } else {
         // Fallback for browsers without native pitch correction:
         // Use a basic low-pass filter to reduce "chipmunk effect"
-        video.pitchCorrector.type = 'lowpass';
-        video.pitchCorrector.frequency.value = 20000 / video.playbackRate;
+        video._pitchCorrector.type = 'lowpass';
+        video._pitchCorrector.frequency.value = 20000 / video.playbackRate;
       }
 
       break;
