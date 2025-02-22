@@ -15,7 +15,8 @@ window.FastVideo = window.FastVideo || {
     if (!this.videoStates.has(video)) {
       this.videoStates.set(video, {
         originalSpeed: video.playbackRate,
-        isInUndo: false
+        isInUndo: false,
+        undoTimeout: null
       });
     }
     return this.videoStates.get(video);

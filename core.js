@@ -267,17 +267,21 @@
 
   function instantUndo(video) {
     const state = window.FastVideo.getVideoState(video);
-    if (state.isInUndo) return;
+    const currentTime = video.currentTime;
+
+    // Store the original speed if this is the first undo
+    if (!state.isInUndo) {
+      state.originalSpeed = video.playbackRate;
+    }
+
+    const targetTime = Math.max(0, currentTime - window.FastVideo.config.rewindDuration);
 
     state.isInUndo = true;
-    const currentTime = video.currentTime;
-    const targetTime = Math.max(0, currentTime - window.FastVideo.config.rewindDuration);
-    const originalSpeed = video.playbackRate;
 
-    // Rewind
+    // Rewind from current position
     video.currentTime = targetTime;
 
-    // Smooth transition to normal speed
+    // Ensure we're at normal speed
     smoothTransition(video, 1.0, window.FastVideo.config.transitionDuration);
 
     // Show notification with progress
@@ -287,10 +291,16 @@
       window.FastVideo.config.normalSpeedDuration
     );
 
+    // Clear any existing timeout to prevent speed conflicts
+    if (state.undoTimeout) {
+      clearTimeout(state.undoTimeout);
+    }
+
     // Return to original speed after delay
-    setTimeout(() => {
-      smoothTransition(video, originalSpeed, window.FastVideo.config.transitionDuration);
+    state.undoTimeout = setTimeout(() => {
+      smoothTransition(video, state.originalSpeed, window.FastVideo.config.transitionDuration);
       state.isInUndo = false;
+      state.undoTimeout = null;
     }, window.FastVideo.config.normalSpeedDuration * 1000);
   }
 })();
