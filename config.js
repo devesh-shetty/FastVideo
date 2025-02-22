@@ -1,5 +1,2 @@
-const DEFAULT_CONFIG = {
-  rewindDuration: 5,
-  normalSpeedDuration: 3,
-  transitionDuration: 0.3
-};
+// Configuration is now handled in state.js
+window.DEFAULT_CONFIG = window.FastVideo.config;
