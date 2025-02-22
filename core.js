@@ -153,3 +153,130 @@ function increasePlaybackRate() {
 }
 
 increasePlaybackRate();
+
+// Add configuration management
+let currentConfig = DEFAULT_CONFIG;
+
+// Load configuration
+chrome.storage.sync.get(DEFAULT_CONFIG, (config) => {
+  currentConfig = config;
+});
+
+// Add state tracking
+const videoStates = new WeakMap();
+
+function getVideoState(video) {
+  if (!videoStates.has(video)) {
+    videoStates.set(video, {
+      originalSpeed: video.playbackRate,
+      isInUndo: false
+    });
+  }
+  return videoStates.get(video);
+}
+
+function smoothTransition(video, targetSpeed, duration) {
+  const startSpeed = video.playbackRate;
+  const startTime = performance.now();
+
+  function updateSpeed() {
+    const currentTime = performance.now();
+    const elapsed = (currentTime - startTime) / 1000; // Convert to seconds
+
+    if (elapsed >= duration) {
+      video.playbackRate = targetSpeed;
+      return;
+    }
+
+    // Smooth easing function
+    const progress = elapsed / duration;
+    const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+
+    video.playbackRate = startSpeed + (targetSpeed - startSpeed) * easeProgress;
+    requestAnimationFrame(updateSpeed);
+  }
+
+  requestAnimationFrame(updateSpeed);
+}
+
+function showUndoNotification(video, message, duration) {
+  let indicator = document.getElementById('fast-video-speed-indicator');
+  if (!indicator) {
+    indicator = createSpeedIndicator();
+  }
+
+  // Add progress bar
+  let progressBar = indicator.querySelector('.progress');
+  if (!progressBar) {
+    progressBar = document.createElement('div');
+    progressBar.className = 'progress';
+    Object.assign(progressBar.style, {
+      position: 'absolute',
+      bottom: '0',
+      left: '0',
+      height: '2px',
+      backgroundColor: '#4CAF50',
+      transition: 'width linear',
+      width: '100%'
+    });
+    indicator.appendChild(progressBar);
+  }
+
+  indicator.textContent = message;
+  indicator.style.opacity = '1';
+  progressBar.style.width = '100%';
+
+  // Animate progress bar
+  setTimeout(() => {
+    progressBar.style.width = '0%';
+    progressBar.style.transition = `width ${duration}s linear`;
+  }, 50);
+
+  // Hide after duration
+  setTimeout(() => {
+    indicator.style.opacity = '0';
+  }, duration * 1000);
+}
+
+function instantUndo(video) {
+  const state = getVideoState(video);
+  if (state.isInUndo) return; // Prevent multiple undos
+
+  state.isInUndo = true;
+  const currentTime = video.currentTime;
+  const targetTime = Math.max(0, currentTime - currentConfig.rewindDuration);
+  const originalSpeed = video.playbackRate;
+
+  // Rewind
+  video.currentTime = targetTime;
+
+  // Smooth transition to normal speed
+  smoothTransition(video, 1.0, currentConfig.transitionDuration);
+
+  // Show notification with progress
+  showUndoNotification(
+    video,
+    '⏮ Normal Speed',
+    currentConfig.normalSpeedDuration
+  );
+
+  // Return to original speed after delay
+  setTimeout(() => {
+    smoothTransition(video, originalSpeed, currentConfig.transitionDuration);
+    state.isInUndo = false;
+  }, currentConfig.normalSpeedDuration * 1000);
+}
+
+// Add command listener
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.command === 'instant-undo') {
+    const videos = document.getElementsByTagName('video');
+    for (let i = 0; i < videos.length; i++) {
+      if (!videos[i].paused) {
+        instantUndo(videos[i]);
+        break;
+      }
+    }
+  }
+});
+
